@@ -47,7 +47,7 @@ END;
 -- Schema Owner - Full Database Control
 -- ============================================================================
 CREATE USER CRS_ADMIN_USER 
-IDENTIFIED BY Admin123
+IDENTIFIED BY NeuBoston2025#
 DEFAULT TABLESPACE USERS
 TEMPORARY TABLESPACE TEMP
 QUOTA UNLIMITED ON USERS;
@@ -67,7 +67,7 @@ DBMS_OUTPUT.PUT_LINE('CRS_ADMIN_USER created successfully');
 -- Application User - Restricted Access (Execute Procedures Only)
 -- ============================================================================
 CREATE USER CRS_DATA_USER 
-IDENTIFIED BY Data123
+IDENTIFIED BY NeuBoston2025#
 DEFAULT TABLESPACE USERS
 TEMPORARY TABLESPACE TEMP
 QUOTA 0 ON USERS;
@@ -81,7 +81,7 @@ DBMS_OUTPUT.PUT_LINE('CRS_DATA_USER created successfully');
 -- Report User - Read-Only Access for Analytics
 -- ============================================================================
 CREATE USER CRS_REPORT_USER 
-IDENTIFIED BY Report123
+IDENTIFIED BY NeuBoston2025#
 DEFAULT TABLESPACE USERS
 TEMPORARY TABLESPACE TEMP
 QUOTA 0 ON USERS;
