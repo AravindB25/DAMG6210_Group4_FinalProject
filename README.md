@@ -76,6 +76,45 @@ CRS_PASSENGER
 
 ---
 
+###  ERD (Text Diagram)
+```text
++--------------------+          +----------------------+
+|   CRS_TRAIN_INFO   | 1      M |  CRS_TRAIN_SCHEDULE  |
++--------------------+----------+----------------------+
+| PK train_id        |          | PK tsch_id           |
+|    train_number    |          | FK train_id          |
+|    source_station  |          | FK sch_id            |
+|    dest_station    |          |    is_in_service     |
+|    total_fc_seats  |          +----------------------+
+|    total_econ_seats|                    |
+|    fc_seat_fare    |                    | M
+|    econ_seat_fare  |                    |
++--------------------+                    1
+                                +----------------------+
+                                |   CRS_DAY_SCHEDULE   |
+                                +----------------------+
+                                | PK sch_id            |
+                                |    day_of_week       |
+                                |    is_week_end       |
+                                +----------------------+
+
++--------------------+          +----------------------+
+|   CRS_PASSENGER    | 1      M |   CRS_RESERVATION    |
++--------------------+----------+----------------------+
+| PK passenger_id    |          | PK booking_id        |
+|    first_name      |          | FK passenger_id      |
+|    middle_name     |          | FK train_id          |
+|    last_name       |          |    travel_date       |
+|    date_of_birth   |          |    booking_date      |
+|    address_line1   |          |    seat_class        |
+|    address_city    |          |    seat_status       |
+|    address_state   |          |    waitlist_position |
+|    address_zip     |          +----------------------+
+|    email (UNIQUE)  |
+|    phone (UNIQUE)  |
++--------------------+
+```
+
 ## 5. Project Structure
 
 ```
@@ -126,13 +165,28 @@ DAMG6210_Group4_FinalProject/
 
 - Oracle Database 19c or higher
 - SQL*Plus or Oracle SQL Developer
-- DBA/SYSTEM privileges for initial setup
+- DBA/SYSTEM privileges for initial setup (Script 01 only)
+
+### Security Note: Execution Permissions
+
+**Important: Application code is NOT executed as SYSTEM/DBA**
+
+| Script | Run As | Why |
+|--------|--------|-----|
+| 01_create_users_and_schemas.sql | SYSTEM/DBA | **Only script requiring DBA** - creates application users |
+| 02-10, 13-14 (DDL, DML, Procedures, Triggers, Views) | CRS_ADMIN_USER | Application owner with **limited permissions only** |
+| 11, 12 (Test scripts) | CRS_DATA_USER | Tests execute via procedures only - **no direct table access** |
+
+**Principle of Least Privilege Applied:**
+- **CRS_ADMIN_USER** has only: CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER (No DBA, No SYSDBA)
+- **CRS_DATA_USER** has only: EXECUTE on packages (No direct INSERT/UPDATE/DELETE on tables)
+- **CRS_REPORT_USER** has only: SELECT on views (Read-only access)
 
 ### Step-by-Step Execution Order
 
 | Step | File | Run As | Type | Description |
 |------|------|--------|------|-------------|
-| 1 | 01_create_users_and_schemas.sql | SYSTEM/DBA | DDL | Creates database users |
+| 1 | 01_create_users_and_schemas.sql | SYSTEM/DBA | DDL | Creates database users (only DBA script) |
 | 2 | 02_create_sequences.sql | CRS_ADMIN_USER | DDL | Creates sequences |
 | 3 | 03_create_tables.sql | CRS_ADMIN_USER | DDL | Creates tables with constraints |
 | 4 | 04_create_indexes.sql | CRS_ADMIN_USER | DDL | Creates indexes |
@@ -149,20 +203,23 @@ DAMG6210_Group4_FinalProject/
 
 ### Detailed Execution Commands
 
-#### Step 1: Connect as SYSTEM and Create Users
+#### Step 1: Connect as SYSTEM and Create Users (Only DBA Script)
 
 ```sql
--- Connect as SYSTEM/DBA
+-- Connect as SYSTEM/DBA (ONLY for user creation)
 sqlplus system/your_password@your_database
 
 -- Run user creation script
 @01_create_users_and_schemas.sql
+
+-- IMPORTANT: Disconnect from SYSTEM immediately after
+DISCONNECT
 ```
 
 #### Step 2: Connect as CRS_ADMIN_USER and Run DDL Scripts
 
 ```sql
--- Connect as schema owner
+-- Connect as application owner (NOT as SYSTEM/DBA)
 CONNECT CRS_ADMIN_USER/Admin123@your_database
 
 -- Enable output
@@ -177,14 +234,14 @@ SET SERVEROUTPUT ON SIZE UNLIMITED;
 #### Step 3: Insert Master Data
 
 ```sql
--- Still as CRS_ADMIN_USER
+-- Still as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 @05_insert_master_data.sql
 ```
 
 #### Step 4: Create Stored Procedures & Packages
 
 ```sql
--- Still as CRS_ADMIN_USER
+-- Still as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 @06_create_passenger_package.sql
 @07_create_booking_package.sql
 ```
@@ -192,43 +249,44 @@ SET SERVEROUTPUT ON SIZE UNLIMITED;
 #### Step 5: Create Trigger
 
 ```sql
--- Still as CRS_ADMIN_USER
+-- Still as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 @08_create_cancellation_trigger.sql
 ```
 
 #### Step 6: Grant Permissions
 
 ```sql
--- Still as CRS_ADMIN_USER
+-- Still as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 @09_grant_permissions.sql
 ```
 
 #### Step 7: Insert Seed Data
 
 ```sql
--- Still as CRS_ADMIN_USER
+-- Still as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 @10_insert_seed_data.sql
 ```
 
 #### Step 8: Run Test Cases
 
 ```sql
--- Connect as CRS_DATA_USER to test permissions
+-- Connect as CRS_DATA_USER (NOT as SYSTEM/DBA, NOT as CRS_ADMIN_USER)
+-- This proves data access works only through procedures
 CONNECT CRS_DATA_USER/Data123@your_database
 
 SET SERVEROUTPUT ON SIZE UNLIMITED;
 
--- Run positive tests
+-- Run positive tests (uses EXECUTE permission on packages)
 @11_test_positive_cases.sql
 
--- Run negative tests
+-- Run negative tests (validates error handling)
 @12_test_negative_cases.sql
 ```
 
 #### Step 9: Create Views & Audit Log
 
 ```sql
--- Connect back as CRS_ADMIN_USER
+-- Connect back as CRS_ADMIN_USER (NOT as SYSTEM/DBA)
 CONNECT CRS_ADMIN_USER/Admin123@your_database
 
 @13_management_reports.sql
@@ -238,13 +296,20 @@ CONNECT CRS_ADMIN_USER/Admin123@your_database
 ### Quick Start (All-in-One)
 
 ```sql
--- Step 1: As SYSTEM/DBA
+-- ============================================
+-- STEP 1: As SYSTEM/DBA (ONLY for user creation)
+-- ============================================
+sqlplus system/your_password@your_database
 @01_create_users_and_schemas.sql
+DISCONNECT
 
--- Step 2: Connect as CRS_ADMIN_USER
+-- ============================================
+-- STEP 2: As CRS_ADMIN_USER (Application Owner)
+-- All DDL, DML, Stored Procedures, Triggers, Views
+-- ============================================
 CONNECT CRS_ADMIN_USER/Admin123
+SET SERVEROUTPUT ON SIZE UNLIMITED;
 
--- Step 3: Run all DDL, DML, Stored Procedures, Triggers, Views
 @02_create_sequences.sql
 @03_create_tables.sql
 @04_create_indexes.sql
@@ -257,8 +322,12 @@ CONNECT CRS_ADMIN_USER/Admin123
 @13_management_reports.sql
 @14_create_audit_log.sql
 
--- Step 4: Test as CRS_DATA_USER
+-- ============================================
+-- STEP 3: As CRS_DATA_USER (Test with limited permissions)
+-- ============================================
 CONNECT CRS_DATA_USER/Data123
+SET SERVEROUTPUT ON SIZE UNLIMITED;
+
 @11_test_positive_cases.sql
 @12_test_negative_cases.sql
 ```
@@ -268,6 +337,9 @@ CONNECT CRS_DATA_USER/Data123
 After running all scripts, verify the setup:
 
 ```sql
+-- Connect as CRS_ADMIN_USER (NOT as SYSTEM)
+CONNECT CRS_ADMIN_USER/Admin123
+
 -- Check all tables created
 SELECT table_name FROM user_tables WHERE table_name LIKE 'CRS%';
 
@@ -290,6 +362,26 @@ UNION ALL
 SELECT 'CRS_PASSENGER', COUNT(*) FROM CRS_PASSENGER
 UNION ALL
 SELECT 'CRS_RESERVATION', COUNT(*) FROM CRS_RESERVATION;
+```
+
+### Verify CRS_DATA_USER Cannot Access Tables Directly
+
+```sql
+-- Connect as CRS_DATA_USER
+CONNECT CRS_DATA_USER/Data123
+
+-- This should FAIL (no direct table access)
+SELECT * FROM CRS_ADMIN_USER.CRS_PASSENGER;
+-- Expected Error: ORA-00942: table or view does not exist
+
+-- This should SUCCEED (access via procedure)
+DECLARE
+    v_info VARCHAR2(500);
+BEGIN
+    v_info := CRS_ADMIN_USER.CRS_PASSENGER_PKG.get_passenger_info(1000);
+    DBMS_OUTPUT.PUT_LINE(v_info);
+END;
+/
 ```
 
 ---
@@ -365,11 +457,21 @@ SELECT CRS_BOOKING_PKG.get_booking_details(5000) AS booking_info FROM DUAL;
 
 ## 8. Security Model
 
-| Role | Access Level | Description |
-|------|--------------|-------------|
-| CRS_ADMIN_USER | Full DDL/DML | Schema owner, creates all objects |
-| CRS_DATA_USER | Execute procedures only | No direct table access |
-| CRS_REPORT_USER | SELECT on views only | Read-only reporting |
+### User Roles and Permissions
+
+| User | Permissions | Direct Table Access | Purpose |
+|------|-------------|---------------------|---------|
+| SYSTEM/DBA | Full database privileges | Yes | **Used ONLY for creating users (Script 01)** |
+| CRS_ADMIN_USER | CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER | Yes (owner) | Application schema owner |
+| CRS_DATA_USER | EXECUTE on CRS_PASSENGER_PKG, CRS_BOOKING_PKG | **No** | Data operations via procedures |
+| CRS_REPORT_USER | SELECT on reporting views only | **No** | Read-only reporting |
+
+### Principle of Least Privilege
+
+- **CRS_ADMIN_USER** does NOT have DBA or SYSDBA privileges
+- **CRS_DATA_USER** cannot INSERT/UPDATE/DELETE tables directly - must use procedures
+- **CRS_REPORT_USER** cannot modify any data - read-only access to views
+- All business logic is encapsulated in packages, ensuring validation rules are always enforced
 
 ---
 
@@ -392,7 +494,7 @@ SELECT CRS_BOOKING_PKG.get_booking_details(5000) AS booking_info FROM DUAL;
 
 ## 10. Test Cases
 
-### Positive Tests (5 cases)
+### Positive Tests (5 cases) - File: 11_test_positive_cases.sql
 
 | # | Test Case | Expected Result |
 |---|-----------|-----------------|
@@ -402,7 +504,7 @@ SELECT CRS_BOOKING_PKG.get_booking_details(5000) AS booking_info FROM DUAL;
 | 4 | Cancel confirmed booking | Waitlisted passenger promoted |
 | 5 | Book on non-operating day | Rejected with error -20015 |
 
-### Negative Tests (10 cases)
+### Negative Tests (10 cases) - File: 12_test_negative_cases.sql
 
 | # | Scenario | Error Code |
 |---|----------|------------|
@@ -435,11 +537,11 @@ SELECT CRS_BOOKING_PKG.get_booking_details(5000) AS booking_info FROM DUAL;
 | Error | Cause | Solution |
 |-------|-------|----------|
 | ORA-01017: invalid username/password | Wrong credentials | Check password in 01_create_users_and_schemas.sql |
-| ORA-00942: table or view does not exist | Scripts run out of order | Run scripts in correct sequence (1-14) |
+| ORA-00942: table or view does not exist | Scripts run out of order OR wrong user | Run scripts in sequence; check "Run As" column |
 | ORA-04021: timeout occurred | Object locked | Wait or restart session |
 | ORA-00955: name is already used | Re-running scripts | Scripts handle DROP IF EXISTS, safe to re-run |
 | PLS-00201: identifier must be declared | Package not compiled | Recompile: `ALTER PACKAGE pkg_name COMPILE;` |
-| ORA-01031: insufficient privileges | Wrong user | Check "Run As" column in execution table |
+| ORA-01031: insufficient privileges | Wrong user connected | Check "Run As" column - don't use SYSTEM for scripts 02-14 |
 
 ---
 
@@ -458,3 +560,6 @@ See [CRS_Group 4_Final Project_DAMG 6210.pdf](docs/CRS_Group%204_Final%20Project
 - **Course:** DAMG 6210 - Data Management and Database Design
 - **Term:** Fall 2025
 - **University:** Northeastern University
+
+
+
