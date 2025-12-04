@@ -461,7 +461,7 @@ SELECT CRS_BOOKING_PKG.get_booking_details(5000) AS booking_info FROM DUAL;
 
 | User | Permissions | Direct Table Access | Purpose |
 |------|-------------|---------------------|---------|
-| SYSTEM/DBA | Full database privileges | Yes | **Used ONLY for creating users (Script 01)** |
+| SYSTEM/DBA(ADB) | Full database privileges | Yes | **Used ONLY for creating users (Script 01)** |
 | CRS_ADMIN_USER | CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER | Yes (owner) | Application schema owner |
 | CRS_DATA_USER | EXECUTE on CRS_PASSENGER_PKG, CRS_BOOKING_PKG | **No** | Data operations via procedures |
 | CRS_REPORT_USER | SELECT on reporting views only | **No** | Read-only reporting |
