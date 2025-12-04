@@ -1,9 +1,7 @@
 -- ============================================================================
--- Commuter Reservation System (CRS)
+-- Commuter Reservation System (CRS) Group 4
 -- Negative Test Cases - Exception Handling Validation
--- Date: November 2025
--- Note: Run as CRS_DATA_USER
--- Prerequisites: Positive test cases must be executed first (File 11)
+-- Note: Run as CRS_ADMIN_USER
 -- ============================================================================
 
 SET SERVEROUTPUT ON SIZE UNLIMITED;
@@ -20,7 +18,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 1: Duplicate Email Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_PASSENGER_PKG.add_passenger(
+    CRS_PASSENGER_PKG.add_passenger(
         p_first_name => 'Duplicate', 
         p_middle_name => NULL, 
         p_last_name => 'EmailTest',
@@ -59,7 +57,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 2: Duplicate Phone Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_PASSENGER_PKG.add_passenger(
+    CRS_PASSENGER_PKG.add_passenger(
         p_first_name => 'Duplicate', 
         p_middle_name => NULL, 
         p_last_name => 'PhoneTest',
@@ -98,7 +96,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 3: Future Date of Birth Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_PASSENGER_PKG.add_passenger(
+    CRS_PASSENGER_PKG.add_passenger(
         p_first_name => 'Future', 
         p_middle_name => NULL, 
         p_last_name => 'Baby',
@@ -138,7 +136,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 4: Non-existent Passenger ID Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.book_ticket(
+    CRS_BOOKING_PKG.book_ticket(
         p_passenger_id => 99999,
         p_train_number => 'TR-101',
         p_travel_date => TRUNC(SYSDATE) + 3,
@@ -173,7 +171,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 5: Non-existent Train Number Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.book_ticket(
+    CRS_BOOKING_PKG.book_ticket(
         p_passenger_id => 1000,
         p_train_number => 'TR-999',
         p_travel_date => TRUNC(SYSDATE) + 3,
@@ -208,7 +206,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 6: Invalid Seat Class Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.book_ticket(
+    CRS_BOOKING_PKG.book_ticket(
         p_passenger_id => 1000,
         p_train_number => 'TR-101',
         p_travel_date => TRUNC(SYSDATE) + 3,
@@ -243,7 +241,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 7: Advance Booking Limit Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.book_ticket(
+    CRS_BOOKING_PKG.book_ticket(
         p_passenger_id => 1000,
         p_train_number => 'TR-101',
         p_travel_date => TRUNC(SYSDATE) + 10,
@@ -278,7 +276,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 8: Past Date Booking Validation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.book_ticket(
+    CRS_BOOKING_PKG.book_ticket(
         p_passenger_id => 1000,
         p_train_number => 'TR-101',
         p_travel_date => TRUNC(SYSDATE) - 1,
@@ -312,7 +310,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 9: Non-existent Booking Cancellation');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    CRS_ADMIN_USER.CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
+    CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
     
     DBMS_OUTPUT.PUT_LINE('FAILED: Should have raised booking not found error');
     DBMS_OUTPUT.PUT_LINE('');
@@ -341,16 +339,16 @@ BEGIN
     
     BEGIN
         SELECT booking_id INTO v_booking_id
-        FROM CRS_ADMIN_USER.CRS_RESERVATION
+        FROM CRS_RESERVATION
         WHERE seat_status = 'CONFIRMED'
         AND ROWNUM = 1;
 
         DBMS_OUTPUT.PUT_LINE('Cancelling booking: ' || v_booking_id);
         
-        CRS_ADMIN_USER.CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
+        CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
         DBMS_OUTPUT.PUT_LINE('First cancellation successful');
 
-        CRS_ADMIN_USER.CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
+        CRS_BOOKING_PKG.cancel_ticket(v_booking_id);
 
         DBMS_OUTPUT.PUT_LINE('FAILED: Should have raised already cancelled error');
         DBMS_OUTPUT.PUT_LINE('');
@@ -378,7 +376,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST 11: Age Category - Non-existent Passenger');
     DBMS_OUTPUT.PUT_LINE('============================================================');
     
-    v_category := CRS_ADMIN_USER.get_passenger_category(99999);
+    v_category := get_passenger_category(99999);
     
     IF v_category = 'PASSENGER NOT FOUND' THEN
         DBMS_OUTPUT.PUT_LINE('PASSED: Correctly handled non-existent passenger');
@@ -395,7 +393,6 @@ END;
 -- Summary
 -- ============================================================================
 
-DECLARE
 BEGIN
     DBMS_OUTPUT.PUT_LINE('============================================================');
     DBMS_OUTPUT.PUT_LINE('NEGATIVE TEST EXECUTION SUMMARY');
@@ -416,7 +413,3 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('============================================================');
 END;
 /
-
--- ============================================================================
--- END OF NEGATIVE TEST CASES
--- ============================================================================

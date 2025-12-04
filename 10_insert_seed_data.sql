@@ -1,7 +1,6 @@
 -- ============================================================================
--- Commuter Reservation System (CRS)
+-- Commuter Reservation System (CRS)Group 4
 -- Seed Data Insertion Script
--- Date: November 2025
 -- Note: Run as CRS_ADMIN_USER
 -- Prerequisites: Master data (trains, schedules) must exist
 -- ============================================================================
