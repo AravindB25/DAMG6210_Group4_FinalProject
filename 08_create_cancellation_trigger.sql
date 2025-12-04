@@ -1,7 +1,6 @@
 -- ============================================================================
--- Commuter Reservation System (CRS)
+-- Commuter Reservation System (CRS)Group 4
 -- Waitlist Promotion Trigger
--- Date: November 2025
 -- Note: Run as CRS_ADMIN_USER
 -- ============================================================================
 
@@ -9,7 +8,7 @@ SET SERVEROUTPUT ON;
 SET VERIFY OFF;
 
 -- ============================================================================
--- Drop Existing Trigger (If Re-running)
+-- Drop Existing Trigger
 -- ============================================================================
 BEGIN
     EXECUTE IMMEDIATE 'DROP TRIGGER trg_promote_waitlist';
@@ -19,73 +18,96 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('No existing trigger found');
 END;
 /
- 
+
 -- ============================================================================
--- Create Waitlist Promotion Trigger
+-- Create Waitlist Promotion Trigger (Compound Trigger)
+-- Fixes mutating table error by using AFTER STATEMENT timing
 -- Automatically promotes the first waitlisted passenger when a confirmed
 -- booking is cancelled.
 -- Waitlist positions: 41-45 (5 positions)
 -- ============================================================================
 CREATE OR REPLACE TRIGGER trg_promote_waitlist
-AFTER UPDATE OF seat_status ON CRS_RESERVATION
-FOR EACH ROW
-WHEN (
-    OLD.seat_status = 'CONFIRMED'
-    AND NEW.seat_status = 'CANCELLED'
-)
-DECLARE
-    v_next_waitlist_booking_id   NUMBER;
-    v_current_waitlist_position  NUMBER;
-BEGIN
+FOR UPDATE OF seat_status ON CRS_RESERVATION
+COMPOUND TRIGGER
+
+    -- Collection to store cancelled booking info
+    TYPE t_cancelled_booking IS RECORD (
+        train_id       NUMBER,
+        travel_date    DATE,
+        seat_class     VARCHAR2(10)
+    );
+    
+    TYPE t_cancelled_list IS TABLE OF t_cancelled_booking INDEX BY PLS_INTEGER;
+    g_cancelled t_cancelled_list;
+    g_count     PLS_INTEGER := 0;
+
+    -- ========================================================================
+    -- AFTER EACH ROW: Capture cancelled booking details
+    -- ========================================================================
+    AFTER EACH ROW IS
     BEGIN
-        -- Fetch the first waitlisted passenger
-        SELECT booking_id, waitlist_position
-        INTO v_next_waitlist_booking_id, v_current_waitlist_position
-        FROM (
-            SELECT booking_id, waitlist_position
-            FROM CRS_RESERVATION
-            WHERE train_id     = :NEW.train_id
-              AND travel_date  = :NEW.travel_date
-              AND seat_class   = :NEW.seat_class
-              AND seat_status  = 'WAITLISTED'
-            ORDER BY waitlist_position ASC
-        )
-        WHERE ROWNUM = 1;
+        IF :OLD.seat_status = 'CONFIRMED' AND :NEW.seat_status = 'CANCELLED' THEN
+            g_count := g_count + 1;
+            g_cancelled(g_count).train_id := :NEW.train_id;
+            g_cancelled(g_count).travel_date := :NEW.travel_date;
+            g_cancelled(g_count).seat_class := :NEW.seat_class;
+        END IF;
+    END AFTER EACH ROW;
+
+    -- ========================================================================
+    -- AFTER STATEMENT: Process waitlist promotions
+    -- ========================================================================
+    AFTER STATEMENT IS
+        v_next_booking_id   NUMBER;
+        v_waitlist_pos      NUMBER;
+    BEGIN
+        FOR i IN 1..g_count LOOP
+            BEGIN
+                -- Find first waitlisted passenger
+                SELECT booking_id, waitlist_position
+                INTO v_next_booking_id, v_waitlist_pos
+                FROM (
+                    SELECT booking_id, waitlist_position
+                    FROM CRS_RESERVATION
+                    WHERE train_id = g_cancelled(i).train_id
+                      AND travel_date = g_cancelled(i).travel_date
+                      AND seat_class = g_cancelled(i).seat_class
+                      AND seat_status = 'WAITLISTED'
+                    ORDER BY waitlist_position ASC
+                )
+                WHERE ROWNUM = 1;
+
+                -- Promote to confirmed
+                UPDATE CRS_RESERVATION
+                SET seat_status = 'CONFIRMED',
+                    waitlist_position = NULL
+                WHERE booking_id = v_next_booking_id;
+
+                -- Decrement remaining waitlist positions
+                UPDATE CRS_RESERVATION
+                SET waitlist_position = waitlist_position - 1
+                WHERE train_id = g_cancelled(i).train_id
+                  AND travel_date = g_cancelled(i).travel_date
+                  AND seat_class = g_cancelled(i).seat_class
+                  AND seat_status = 'WAITLISTED'
+                  AND waitlist_position > v_waitlist_pos;
+
+                DBMS_OUTPUT.PUT_LINE('Promoted booking ' || v_next_booking_id || 
+                                     ' from waitlist position ' || v_waitlist_pos);
+
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    DBMS_OUTPUT.PUT_LINE('No waitlisted passengers to promote');
+            END;
+        END LOOP;
         
-        -- Promote the passenger to confirmed
-        UPDATE CRS_RESERVATION
-        SET seat_status = 'CONFIRMED',
-            waitlist_position = NULL
-        WHERE booking_id = v_next_waitlist_booking_id;
-        
-        DBMS_OUTPUT.PUT_LINE(
-            'Promoted booking ' || v_next_waitlist_booking_id ||
-            ' from waitlist position ' || v_current_waitlist_position
-        );
+        -- Reset counter
+        g_count := 0;
+    END AFTER STATEMENT;
 
-        -- Decrement waitlist positions for remaining passengers
-        UPDATE CRS_RESERVATION
-        SET waitlist_position = waitlist_position - 1
-        WHERE train_id     = :NEW.train_id
-          AND travel_date  = :NEW.travel_date
-          AND seat_class   = :NEW.seat_class
-          AND seat_status  = 'WAITLISTED'
-          AND waitlist_position > v_current_waitlist_position;
-
-        DBMS_OUTPUT.PUT_LINE('Updated remaining waitlist positions');
-
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('No waitlisted passengers to promote');
-        WHEN OTHERS THEN
-            RAISE_APPLICATION_ERROR(
-                -20030,
-                'Error during waitlist promotion: ' || SQLERRM
-            );
-    END;
-END;
+END trg_promote_waitlist;
 /
- 
+
 -- ============================================================================
 -- Verification
 -- ============================================================================
@@ -95,9 +117,6 @@ WHERE trigger_name = 'TRG_PROMOTE_WAITLIST';
 
 COMMIT;
 
-PROMPT Waitlist promotion trigger created successfully.
-PROMPT Next: Run 09_grant_permissions.sql
-
--- ============================================================================
--- END OF SCRIPT
--- ============================================================================
+PROMPT ============================================================
+PROMPT Waitlist promotion trigger (compound) created successfully.
+PROMPT ============================================================
