@@ -1,7 +1,6 @@
 -- ============================================================================
--- Commuter Reservation System (CRS) - Group 4
--- DDL Script - Table Creation
--- Date: November 2025
+-- Commuter Reservation System (CRS) Group 4
+-- DDL Script - Table Creation 
 -- Note: Run as CRS_ADMIN_USER
 -- ============================================================================
 
@@ -13,11 +12,40 @@ SET VERIFY OFF;
 -- Drop in reverse order of dependencies
 -- ============================================================================
 
-DROP TABLE CRS_RESERVATION CASCADE CONSTRAINTS;
-DROP TABLE CRS_PASSENGER CASCADE CONSTRAINTS;
-DROP TABLE CRS_TRAIN_SCHEDULE CASCADE CONSTRAINTS;
-DROP TABLE CRS_DAY_SCHEDULE CASCADE CONSTRAINTS;
-DROP TABLE CRS_TRAIN_INFO CASCADE CONSTRAINTS;
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE CRS_RESERVATION CASCADE CONSTRAINTS';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE CRS_PASSENGER CASCADE CONSTRAINTS';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE CRS_TRAIN_SCHEDULE CASCADE CONSTRAINTS';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE CRS_DAY_SCHEDULE CASCADE CONSTRAINTS';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE CRS_TRAIN_INFO CASCADE CONSTRAINTS';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
 
 -- ============================================================================
 -- Independent Entity Tables
@@ -46,7 +74,7 @@ CREATE TABLE CRS_DAY_SCHEDULE (
     CONSTRAINT chk_weekend CHECK (is_week_end IN ('Y', 'N'))
 );
 
--- CRS_PASSENGER Table
+-- CRS_PASSENGER Table 
 CREATE TABLE CRS_PASSENGER (
     passenger_id   NUMBER PRIMARY KEY,
     first_name     VARCHAR2(50) NOT NULL,
@@ -58,8 +86,7 @@ CREATE TABLE CRS_PASSENGER (
     address_state  VARCHAR2(50) NOT NULL,
     address_zip    VARCHAR2(10) NOT NULL,
     email          VARCHAR2(100) NOT NULL UNIQUE,
-    phone          VARCHAR2(15) NOT NULL UNIQUE,
-    CONSTRAINT chk_dob CHECK (date_of_birth < SYSDATE)
+    phone          VARCHAR2(15) NOT NULL UNIQUE
 );
 
 -- ============================================================================
@@ -82,7 +109,7 @@ CREATE TABLE CRS_TRAIN_SCHEDULE (
 -- Transaction Tables
 -- ============================================================================
 
--- CRS_RESERVATION Table
+-- CRS_RESERVATION Table 
 CREATE TABLE CRS_RESERVATION (
     booking_id        NUMBER PRIMARY KEY,
     passenger_id      NUMBER NOT NULL,
@@ -94,10 +121,6 @@ CREATE TABLE CRS_RESERVATION (
     waitlist_position NUMBER,
     CONSTRAINT chk_seat_class CHECK (seat_class IN ('FC', 'ECON')),
     CONSTRAINT chk_seat_status CHECK (seat_status IN ('CONFIRMED', 'WAITLISTED', 'CANCELLED')),
-    CONSTRAINT chk_travel_date CHECK (
-        travel_date >= TRUNC(booking_date)
-        AND travel_date <= TRUNC(booking_date) + 7
-    ),
     CONSTRAINT chk_waitlist_logic CHECK (
         (seat_status = 'CONFIRMED' AND waitlist_position IS NULL) OR
         (seat_status = 'WAITLISTED' AND waitlist_position BETWEEN 41 AND 45) OR
@@ -115,12 +138,7 @@ COMMIT;
 -- ============================================================================
 -- Verification
 -- ============================================================================
-SELECT table_name, num_rows 
+SELECT table_name 
 FROM user_tables 
 WHERE table_name LIKE 'CRS%' 
 ORDER BY table_name;
-
--- ============================================================================
--- END OF TABLE CREATION SCRIPT
--- Next: Run 04_create_indexes.sql
--- ============================================================================
